@@ -20,6 +20,7 @@ de forma reproducible y portátil usando Docker y Docker Compose.
    ```
 
 ---
+## generar el jar del proyecto 
 
 
 ## 1. Crear los Dockerfile
@@ -31,12 +32,15 @@ Ubicado en `front-end/app-front/Dockerfile`:
 
 ```dockerfile
 # Imagen base de NGINX para servir Angular
-FROM nginx:alpine
+FFROM node:20-alpine as build
+WORKDIR /app
+COPY . .
+RUN npm install
+RUN npm run build --prod
 
-# Copiar artefactos de compilación de Angular
-COPY dist/app-front /usr/share/nginx/html
-
-# Exponer el puerto 80
+# Etapa 2: Servidor NGINX
+FROM nginx:stable-alpine
+COPY --from=build /app/dist/app-front /usr/share/nginx/html
 EXPOSE 80
 ```
 
@@ -47,13 +51,13 @@ Ubicado en `back-end/app-aut/Dockerfile`:
 
 ```dockerfile
 # Imagen base de Java
-FROM eclipse-temurin:11-jre
-
+FROM openjdk:21-jdk-slim
+ARG JAR_FILE=target/app-aut-0.0.1-SNAPSHOT.jar
 # Directorio de trabajo
 WORKDIR /app
 
 # Copiar jar compilado
-COPY target/app-aut.jar ./app.jar
+COPY ${JAR_FILE} app.jar
 
 # Exponer el puerto de la aplicación
 EXPOSE 8080
@@ -70,6 +74,7 @@ En la raíz del proyecto, cree o edite `docker-compose.yml` con el siguiente con
 
 ```yaml
 version: '3'
+
 services:
   mysql:
     image: mysql:8.0.33
@@ -80,9 +85,6 @@ services:
       MYSQL_ROOT_PASSWORD: usersql
       MYSQL_PASSWORD: usersql
       MYSQL_DATABASE: seg
-    volumes:
-      - db_data:/var/lib/mysql
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       timeout: 10s
@@ -90,8 +92,7 @@ services:
     restart: always
 
   backend:
-    build: ./back-end/app-aut
-    container_name: app-aut
+    build: /back-end/app-aut
     ports:
       - "8080:8080"
     environment:
@@ -105,13 +106,9 @@ services:
 
   frontend:
     build: ./front-end/app-front
-    container_name: app-front
     ports:
       - "4200:80"
     restart: always
-
-volumes:
-  db_data:
 ```
 
 ---
