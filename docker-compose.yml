@@ -1,36 +1,47 @@
-version: '3'
-
 services:
   mysql:
-    image: mysql:8.0.33
-    container_name: mysql-db
+    image: mysql:8
+    container_name: mysql
     ports:
-      - "3307:3306"
+      - "3307:3306" # usa 3307 en el host para evitar conflictos con un MySQL local
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./init:/docker-entrypoint-initdb.d
     environment:
       MYSQL_ROOT_PASSWORD: usersql
       MYSQL_PASSWORD: usersql
       MYSQL_DATABASE: seg
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      timeout: 10s
-      retries: 10
-    restart: always
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
 
   backend:
-    build: /back-end/app-aut
+    build:
+      context: ./app-aut
+      dockerfile: Dockerfile
     ports:
       - "8080:8080"
-    environment:
-      DB_URL: jdbc:mysql://mysql:3306/seg?createDatabaseIfNotExist=true&serverTimeZone=UTC
-      DB_USER_NAME: root
-      DB_PASSWORD: usersql
     depends_on:
       mysql:
         condition: service_healthy
-    restart: always
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/seg
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: usersql
+    restart: unless-stopped
 
   frontend:
-    build: ./front-end/app-front
+    build:
+      context: ./app-front
+      dockerfile: Dockerfile
     ports:
-      - "4200:80"
-    restart: always
+      - "4000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
