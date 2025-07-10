@@ -1,7 +1,7 @@
 services:
-  mysql:
+  mysql-database:
     image: mysql:8
-    container_name: mysql
+    container_name: mysql-database
     ports:
       - "3307:3306" # usa 3307 en el host para evitar conflictos con un MySQL local
     volumes:
@@ -18,29 +18,29 @@ services:
       retries: 5
     restart: unless-stopped
 
-  backend:
+  back-springboot:
     build:
       context: ./app-aut
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
     depends_on:
-      mysql:
+      mysql-database:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/seg
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-database:3306/seg
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: usersql
     restart: unless-stopped
 
-  frontend:
+  front-angular:
     build:
       context: ./app-front
       dockerfile: Dockerfile
     ports:
       - "4000:80"
     depends_on:
-      - backend
+      - back-springboot
     restart: unless-stopped
 
 volumes:
